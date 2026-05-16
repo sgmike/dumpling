@@ -7,72 +7,81 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Dumpling" />
+  <meta name="apple-mobile-web-app-title" content="Elza's dumpling workshop" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
   <link rel="apple-touch-icon" href="icons/icon.svg" />
   <link rel="stylesheet" href="styles.css" />
-  <title>Mi Dumpling — Diseña tu dumpling</title>
+  <title>Elza's dumpling workshop</title>
 </head>
 <body>
   <div id="app">
 
+    <!-- ============== SCREEN: LANGUAGE ============== -->
+    <section class="screen lang-screen" data-screen="language" hidden>
+      <div class="lang-card">
+        <div class="lang-logo" id="lang-logo"></div>
+        <h1 class="brand-big">Elza's dumpling workshop</h1>
+        <p class="lang-prompt" id="lang-prompt">Choose your language</p>
+        <p class="lang-subprompt" id="lang-subprompt">Elige tu idioma · Izvēlies valodu</p>
+        <div class="lang-buttons" id="lang-buttons"></div>
+      </div>
+    </section>
+
     <!-- ============== SCREEN: HOME ============== -->
-    <section class="screen" data-screen="home">
+    <section class="screen" data-screen="home" hidden>
       <header class="topbar">
+        <button class="icon-btn ghost" id="btn-lang-home" aria-label="Language">
+          <span class="flag-emoji" id="flag-home">🌐</span>
+        </button>
         <div class="title-wrap">
-          <h1 class="title">🥟 Mis Dumplings</h1>
-          <p class="subtitle">Diseña, guarda y comparte</p>
+          <h1 class="brand-title">Elza's dumpling workshop</h1>
+          <p class="subtitle" data-i18n="tagline"></p>
         </div>
+        <div style="width:42px"></div>
       </header>
 
       <div class="home-body">
         <button class="create-btn" id="btn-create">
           <span class="create-emoji">✨</span>
-          <span>Crear un nuevo dumpling</span>
+          <span data-i18n="home.create"></span>
         </button>
-
-        <div class="collection" id="collection">
-          <!-- Saved dumplings render here -->
-        </div>
+        <div class="collection" id="collection"></div>
       </div>
     </section>
 
     <!-- ============== SCREEN: DESIGNER ============== -->
     <section class="screen" data-screen="design" hidden>
       <header class="topbar">
-        <button class="icon-btn ghost" id="btn-back-home" aria-label="Volver">
+        <button class="icon-btn ghost" id="btn-back-home" aria-label="Back">
           <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
         </button>
-        <h1 class="title">Diseña tu dumpling</h1>
-        <div style="width:42px"></div>
+        <div class="title-wrap">
+          <h1 class="brand-title">Elza's dumpling workshop</h1>
+          <p class="subtitle" data-i18n="design.title"></p>
+        </div>
+        <button class="icon-btn ghost" id="btn-lang-design" aria-label="Language">
+          <span class="flag-emoji" id="flag-design">🌐</span>
+        </button>
       </header>
 
       <div class="preview" id="preview">
         <div class="preview-svg" id="preview-svg"></div>
       </div>
 
-      <nav class="steps" id="steps" role="tablist">
-        <button class="step-tab active" data-step="color">🎨 Color</button>
-        <button class="step-tab" data-step="eyes">👀 Ojos</button>
-        <button class="step-tab" data-step="mouth">👄 Boca</button>
-        <button class="step-tab" data-step="blush">😊 Cachetes</button>
-        <button class="step-tab" data-step="accessories">🎀 Accesorios</button>
-        <button class="step-tab" data-step="box">📦 Cajita</button>
-        <button class="step-tab" data-step="boxColor">🌈 Color caja</button>
-        <button class="step-tab" data-step="name">📝 Nombre</button>
-      </nav>
+      <nav class="steps" id="steps" role="tablist"></nav>
 
       <div class="options" id="options"></div>
 
       <footer class="footer-actions">
-        <button class="btn ghost" id="btn-prev">← Atrás</button>
-        <button class="btn primary" id="btn-next">Siguiente →</button>
+        <button class="btn ghost" id="btn-prev" data-i18n="btn.back"></button>
+        <button class="btn primary" id="btn-next" data-i18n="btn.next"></button>
       </footer>
     </section>
 
     <!-- ============== SCREEN: REVEAL ============== -->
     <section class="screen reveal-screen" data-screen="reveal" hidden>
+      <div class="reveal-brand">Elza's dumpling workshop</div>
       <div class="reveal-stage" id="reveal-stage">
         <div class="confetti" id="confetti"></div>
         <div class="reveal-name" id="reveal-name"></div>
@@ -80,12 +89,12 @@
       </div>
 
       <footer class="reveal-actions" id="reveal-actions" hidden>
-        <button class="btn primary big" id="btn-share">📲 Compartir / Descargar</button>
-        <button class="btn" id="btn-save">💾 Guardar en mi colección</button>
-        <button class="btn ghost" id="btn-new-after">✨ Crear otro</button>
+        <button class="btn primary big" id="btn-share" data-i18n="reveal.share"></button>
+        <button class="btn" id="btn-save" data-i18n="reveal.save"></button>
+        <button class="btn ghost" id="btn-new-after" data-i18n="reveal.createOther"></button>
       </footer>
 
-      <div class="reveal-tap-hint" id="reveal-tap-hint">Toca para abrir la caja</div>
+      <div class="reveal-tap-hint" id="reveal-tap-hint" data-i18n="reveal.tapToOpen"></div>
     </section>
 
     <!-- Toast -->
@@ -93,9 +102,9 @@
 
     <!-- Install banner -->
     <div class="install-banner" id="install-banner" hidden>
-      <span>¡Instala la app en tu teléfono!</span>
-      <button class="btn small" id="btn-install">Instalar</button>
-      <button class="icon-btn small ghost" id="btn-dismiss-install" aria-label="Cerrar">
+      <span data-i18n="install.banner"></span>
+      <button class="btn small" id="btn-install" data-i18n="install.btn"></button>
+      <button class="icon-btn small ghost" id="btn-dismiss-install" aria-label="Close">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
       </button>
     </div>

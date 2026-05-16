@@ -1,10 +1,9 @@
 /**
- * Controlador principal de la app.
- * - Navegación entre 3 pantallas: home / design / reveal
+ * Controlador principal de Elza's dumpling workshop.
+ * - Selección de idioma (es / en / lv)
+ * - Navegación entre pantallas: language / home / design / reveal
  * - Estado del dumpling en construcción
- * - Renderizado de previews y opciones
- * - Animación de apertura de cajita
- * - Exportar a PNG y compartir
+ * - Renderizado, exportar, compartir, instalación PWA
  */
 
 import {
@@ -13,16 +12,19 @@ import {
 import { renderDumplingSVG } from './dumpling.js';
 import { renderBoxSVG } from './box.js';
 import { Storage } from './storage.js';
+import {
+  t, BRAND, LOCALES, getLocale, setLocale,
+  getStoredLocale, detectBestLocale,
+} from './i18n.js';
 
 const STEPS = ['color', 'eyes', 'mouth', 'blush', 'accessories', 'box', 'boxColor', 'name'];
 const storage = new Storage();
 
-/* ============ Estado ============ */
 const state = {
-  screen: 'home',
+  screen: 'language',
   currentStep: 'color',
   config: defaultConfig(),
-  editingId: null, // si se está editando uno existente
+  editingId: null,
 };
 
 function defaultConfig() {
@@ -56,45 +58,98 @@ const confettiEl = document.getElementById('confetti');
 function showScreen(name) {
   state.screen = name;
   screens.forEach(s => {
-    const visible = s.dataset.screen === name;
-    s.hidden = !visible;
+    s.hidden = s.dataset.screen !== name;
+  });
+  if (name === 'home') renderCollection();
+}
+
+/* ============ I18N: apply translations ============ */
+function applyTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  renderSteps();
+  // Re-render current screen content
+  if (state.screen === 'design') renderOptions();
+  if (state.screen === 'home') renderCollection();
+  updateLangFlags();
+}
+
+function updateLangFlags() {
+  const loc = LOCALES.find(l => l.code === getLocale());
+  const flag = loc ? loc.flag : '🌐';
+  const f1 = document.getElementById('flag-home');
+  const f2 = document.getElementById('flag-design');
+  if (f1) f1.textContent = flag;
+  if (f2) f2.textContent = flag;
+}
+
+/* ============ LANGUAGE SCREEN ============ */
+function renderLanguageScreen() {
+  // Logo (mini dumpling) sobre la marca
+  document.getElementById('lang-logo').innerHTML = renderDumplingSVG(defaultConfig());
+
+  const btns = document.getElementById('lang-buttons');
+  btns.innerHTML = '';
+  for (const loc of LOCALES) {
+    const b = document.createElement('button');
+    b.className = 'lang-btn' + (loc.code === getLocale() ? ' active' : '');
+    b.innerHTML = `<span class="flag-emoji">${loc.flag}</span><span class="lang-name">${loc.name}</span>`;
+    b.addEventListener('click', () => {
+      setLocale(loc.code);
+      applyTranslations();
+      showScreen('home');
+    });
+    btns.appendChild(b);
+  }
+}
+
+/* ============ STEPS (dynamic, translated) ============ */
+function renderSteps() {
+  if (!stepsEl) return;
+  stepsEl.innerHTML = STEPS.map(s => `
+    <button class="step-tab ${s === state.currentStep ? 'active' : ''}" data-step="${s}">${t('step.' + s)}</button>
+  `).join('');
+  stepsEl.querySelectorAll('.step-tab').forEach(tab => {
+    tab.addEventListener('click', () => setStep(tab.dataset.step));
   });
 }
 
 /* ============ HOME: collection ============ */
 async function renderCollection() {
+  if (!collectionEl) return;
   const items = await storage.list();
   collectionEl.innerHTML = '';
   if (!items.length) {
     collectionEl.innerHTML = `
       <div class="empty-state">
         <div class="empty-emoji">🥟</div>
-        <h3>Aún no tienes dumplings</h3>
-        <p>Toca <strong>"Crear un nuevo dumpling"</strong> para empezar.</p>
+        <h3>${t('home.empty.title')}</h3>
+        <p>${t('home.empty.desc')}</p>
       </div>`;
     return;
   }
   items.sort((a, b) => b.id - a.id);
   for (const item of items) {
+    const name = item.config.name || t('name.default');
     const card = document.createElement('div');
     card.className = 'collection-card';
     card.tabIndex = 0;
     card.innerHTML = `
       <div class="card-svg">${renderDumplingSVG(item.config)}</div>
-      <div class="card-name">${escapeHtml(item.config.name || 'Mi Dumpling')}</div>
-      <button class="delete" aria-label="Borrar">
+      <div class="card-name">${escapeHtml(name)}</div>
+      <button class="delete" aria-label="Delete">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
       </button>
     `;
     card.querySelector('.delete').addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (confirm(`¿Borrar a ${item.config.name || 'este dumpling'}?`)) {
+      if (confirm(t('home.confirmDelete', { name }))) {
         await storage.remove(item.id);
         renderCollection();
       }
     });
     card.addEventListener('click', () => {
-      // Abrir el reveal de un dumpling guardado
       state.config = { ...item.config };
       state.editingId = item.id;
       openReveal({ fromSaved: true });
@@ -113,7 +168,6 @@ function setStep(step) {
   document.querySelectorAll('.step-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.step === step);
   });
-  // Asegurarse de que el tab activo sea visible (scroll horizontal)
   const activeTab = document.querySelector('.step-tab.active');
   if (activeTab) {
     activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
@@ -122,22 +176,23 @@ function setStep(step) {
 }
 
 function renderOptions() {
+  if (!optionsEl) return;
   const step = state.currentStep;
   let html = '';
 
   if (step === 'color') {
-    html = `<p class="opt-section-title">Elige el color de tu dumpling</p>
+    html = `<p class="opt-section-title">${t('section.chooseColor')}</p>
       <div class="opt-grid">
         ${DUMPLING_COLORS.map(c => `
           <button class="opt-card color-card ${state.config.color === c.id && !state.config.colorCustom ? 'active' : ''}"
-            data-color="${c.id}" aria-label="${c.name}">
+            data-color="${c.id}" aria-label="${t('color.' + c.id)}" title="${t('color.' + c.id)}">
             <div class="swatch" style="background:${c.fill}; box-shadow: inset 0 0 0 3px ${c.stroke};"></div>
             <span class="check">✓</span>
           </button>
         `).join('')}
       </div>
       <div class="custom-color-row">
-        <label for="custom-color-input">🌈 Color personalizado</label>
+        <label for="custom-color-input">${t('section.customColor')}</label>
         <div class="custom-color-wrap">
           <input type="color" id="custom-color-input" value="${state.config.colorCustom || '#ff7eb6'}"/>
         </div>
@@ -153,15 +208,14 @@ function renderOptions() {
     html = renderPartGrid(BLUSH, state.config.blush, 'blush');
   }
   else if (step === 'accessories') {
-    // Agrupar por categoría
     const categories = [...new Set(ACCESSORIES.map(a => a.category))];
     html = categories.map(cat => `
       <div style="margin-bottom: 20px;">
-        <p class="opt-section-title">${cat}</p>
+        <p class="opt-section-title">${t('cat.' + cat)}</p>
         <div class="opt-grid">
           ${ACCESSORIES.filter(a => a.category === cat).map(a => `
             <button class="opt-card ${state.config.accessories.includes(a.id) ? 'active' : ''}"
-              data-accessory="${a.id}" aria-label="${a.name}">
+              data-accessory="${a.id}" aria-label="${t('acc.' + a.id)}" title="${t('acc.' + a.id)}">
               ${renderAccessoryPreview(a)}
               <span class="check">✓</span>
             </button>
@@ -171,24 +225,24 @@ function renderOptions() {
     `).join('');
   }
   else if (step === 'box') {
-    html = `<p class="opt-section-title">Elige dónde vivirá tu dumpling</p>
+    html = `<p class="opt-section-title">${t('section.chooseBox')}</p>
       <div class="opt-grid" style="grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));">
         ${BOXES.map(b => `
           <button class="opt-card ${state.config.box === b.id ? 'active' : ''}"
-            data-box="${b.id}" aria-label="${b.name}" style="aspect-ratio: 1.2; flex-direction: column;">
+            data-box="${b.id}" aria-label="${t('box.' + b.id)}" style="aspect-ratio: 1.2; flex-direction: column;">
             <div style="font-size:42px; line-height:1;">${b.emoji}</div>
-            <div class="opt-label">${b.name}</div>
+            <div class="opt-label">${t('box.' + b.id)}</div>
             <span class="check">✓</span>
           </button>
         `).join('')}
       </div>`;
   }
   else if (step === 'boxColor') {
-    html = `<p class="opt-section-title">Elige el color de la cajita</p>
+    html = `<p class="opt-section-title">${t('section.chooseBoxColor')}</p>
       <div class="opt-grid">
         ${BOX_COLORS.map(c => `
           <button class="opt-card color-card ${state.config.boxColor === c.id ? 'active' : ''}"
-            data-box-color="${c.id}" aria-label="${c.name}">
+            data-box-color="${c.id}" aria-label="${t('boxColor.' + c.id)}" title="${t('boxColor.' + c.id)}">
             <div class="swatch" style="background:${c.fill}; box-shadow: inset 0 0 0 3px ${c.stroke};"></div>
             <span class="check">✓</span>
           </button>
@@ -198,14 +252,14 @@ function renderOptions() {
   else if (step === 'name') {
     html = `
       <div class="name-input-wrap">
-        <label for="dumpling-name">📝 ¿Cómo se llama tu dumpling?</label>
+        <label for="dumpling-name">${t('name.label')}</label>
         <input type="text" class="name-input" id="dumpling-name"
-          maxlength="14" placeholder="Ej. Bao, Mochi, Lulu..."
+          maxlength="14" placeholder="${t('name.placeholder')}"
           value="${escapeHtml(state.config.name)}" autocomplete="off"/>
-        <p class="name-hint">Máximo 14 letras — quedará escrito en la cajita.</p>
+        <p class="name-hint">${t('name.hint')}</p>
       </div>
-      <div class="opt-section-title" style="margin-top: 20px;">Vista previa de la cajita:</div>
-      <div style="aspect-ratio: 1; max-width: 280px; margin: 0 auto;">
+      <div class="opt-section-title" style="margin-top: 20px;">${t('section.boxPreview')}</div>
+      <div class="box-preview-box" style="aspect-ratio: 1; max-width: 280px; margin: 0 auto;">
         ${renderBoxSVG(state.config, state.config)}
       </div>
     `;
@@ -219,7 +273,7 @@ function renderPartGrid(parts, currentId, kind) {
   return `<div class="opt-grid">
     ${parts.map(p => `
       <button class="opt-card ${currentId === p.id ? 'active' : ''}"
-        data-${kind}="${p.id}" aria-label="${p.name}">
+        data-${kind}="${p.id}" aria-label="${t(kind + '.' + p.id)}" title="${t(kind + '.' + p.id)}">
         ${renderPartPreview(p, kind)}
         <span class="check">✓</span>
       </button>
@@ -227,12 +281,9 @@ function renderPartGrid(parts, currentId, kind) {
   </div>`;
 }
 
-/** Genera SVG en miniatura para mostrar una opción de cara */
 function renderPartPreview(part, kind) {
-  // Cuerpo simplificado + la parte específica
   const baseFill = '#fff0d4';
-  const baseStroke = '#d9b277';
-  let extra = '';
+  const baseStroke = '#8a5530';
   let face = '';
   if (kind === 'eyes') face = part.svg();
   else if (kind === 'mouth') {
@@ -247,19 +298,18 @@ function renderPartPreview(part, kind) {
   }
   return `
     <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-      <path d="M 80 240 C 80 170, 120 110, 200 110 C 280 110, 320 170, 320 240 C 320 320, 270 365, 200 365 C 130 365, 80 320, 80 240 Z"
-        fill="${baseFill}" stroke="${baseStroke}" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M 55 232 C 55 150, 112 105, 200 105 C 288 105, 345 150, 345 232 C 345 312, 285 358, 200 358 C 115 358, 55 312, 55 232 Z"
+        fill="${baseFill}" stroke="${baseStroke}" stroke-width="6" stroke-linejoin="round"/>
       ${face}
     </svg>
   `;
 }
 
 function renderAccessoryPreview(acc) {
-  // muestra el accesorio sobre una silueta gris simple
   return `
     <svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
-      <path d="M 80 240 C 80 170, 120 110, 200 110 C 280 110, 320 170, 320 240 C 320 320, 270 365, 200 365 C 130 365, 80 320, 80 240 Z"
-        fill="#f3e8ef" stroke="#c9b5c4" stroke-width="3"/>
+      <path d="M 55 232 C 55 150, 112 105, 200 105 C 288 105, 345 150, 345 232 C 345 312, 285 358, 200 358 C 115 358, 55 312, 55 232 Z"
+        fill="#f3e8ef" stroke="#9b8aa1" stroke-width="5"/>
       <g><circle cx="155" cy="220" r="6" fill="#2a1a3a"/><circle cx="245" cy="220" r="6" fill="#2a1a3a"/></g>
       <path d="M 180 280 Q 200 295 220 280" fill="none" stroke="#2a1a3a" stroke-width="4" stroke-linecap="round"/>
       ${acc.svg()}
@@ -268,7 +318,6 @@ function renderAccessoryPreview(acc) {
 }
 
 function attachOptionEvents() {
-  // Color del dumpling
   optionsEl.querySelectorAll('[data-color]').forEach(el => {
     el.addEventListener('click', () => {
       state.config.color = el.dataset.color;
@@ -286,7 +335,6 @@ function attachOptionEvents() {
     });
   }
 
-  // Caras
   ['eyes', 'mouth', 'blush'].forEach(kind => {
     optionsEl.querySelectorAll(`[data-${kind}]`).forEach(el => {
       el.addEventListener('click', () => {
@@ -297,18 +345,15 @@ function attachOptionEvents() {
     });
   });
 
-  // Accesorios (toggle múltiple, máximo 1 por categoría)
   optionsEl.querySelectorAll('[data-accessory]').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.dataset.accessory;
       const acc = ACCESSORIES.find(a => a.id === id);
       if (!acc) return;
-
       const current = new Set(state.config.accessories);
       if (current.has(id)) {
         current.delete(id);
       } else {
-        // Quitar otros de la misma categoría (solo uno de cada tipo)
         ACCESSORIES.filter(a => a.category === acc.category).forEach(a => current.delete(a.id));
         current.add(id);
       }
@@ -318,7 +363,6 @@ function attachOptionEvents() {
     });
   });
 
-  // Caja
   optionsEl.querySelectorAll('[data-box]').forEach(el => {
     el.addEventListener('click', () => {
       state.config.box = el.dataset.box;
@@ -332,13 +376,11 @@ function attachOptionEvents() {
     });
   });
 
-  // Nombre
   const nameInput = optionsEl.querySelector('#dumpling-name');
   if (nameInput) {
     nameInput.addEventListener('input', (e) => {
       state.config.name = e.target.value;
-      // Solo re-renderiza la mini preview de la caja (no la pantalla entera)
-      const boxPreview = optionsEl.querySelector('div[style*="aspect-ratio"]');
+      const boxPreview = optionsEl.querySelector('.box-preview-box');
       if (boxPreview) boxPreview.innerHTML = renderBoxSVG(state.config, state.config);
     });
   }
@@ -354,18 +396,14 @@ document.getElementById('btn-next').addEventListener('click', () => {
   if (idx < STEPS.length - 1) {
     setStep(STEPS[idx + 1]);
   } else {
-    // último paso: validar nombre y abrir reveal
     if (!state.config.name.trim()) {
-      toast('Ponle un nombre a tu dumpling ✨');
+      toast(t('name.toast.required'));
       const input = optionsEl.querySelector('#dumpling-name');
       if (input) input.focus();
       return;
     }
     openReveal({ fromSaved: false });
   }
-});
-document.querySelectorAll('.step-tab').forEach(tab => {
-  tab.addEventListener('click', () => setStep(tab.dataset.step));
 });
 
 /* ============ Home buttons ============ */
@@ -377,26 +415,31 @@ document.getElementById('btn-create').addEventListener('click', () => {
   showScreen('design');
 });
 document.getElementById('btn-back-home').addEventListener('click', () => {
-  if (confirm('¿Volver al inicio? Los cambios no guardados se perderán.')) {
+  if (confirm(t('home.confirmExit'))) {
     showScreen('home');
-    renderCollection();
   }
 });
+
+/* ============ Language buttons in topbar ============ */
+function openLanguageScreen() {
+  state._returnTo = state.screen;
+  renderLanguageScreen();
+  showScreen('language');
+}
+document.getElementById('btn-lang-home').addEventListener('click', openLanguageScreen);
+document.getElementById('btn-lang-design').addEventListener('click', openLanguageScreen);
 
 /* ============ REVEAL ============ */
 function openReveal({ fromSaved }) {
   showScreen('reveal');
   revealName.classList.remove('show');
-  revealName.textContent = state.config.name || 'Mi Dumpling';
+  revealName.textContent = state.config.name || t('name.default');
   revealBox.classList.remove('opening');
   revealActions.hidden = true;
   revealTapHint.classList.remove('hidden');
   confettiEl.innerHTML = '';
-
-  // Renderizar caja cerrada
   revealBox.innerHTML = renderBoxSVG(state.config, state.config);
 
-  // Si viene de guardados, abrir automáticamente sin pedir tap
   if (fromSaved) {
     setTimeout(() => triggerOpenAnimation(true), 400);
   }
@@ -406,11 +449,8 @@ function triggerOpenAnimation(skipHint) {
   if (revealBox.classList.contains('opening')) return;
   revealBox.classList.add('opening');
   revealTapHint.classList.add('hidden');
-  // Mostrar nombre con un pequeño retraso
   setTimeout(() => revealName.classList.add('show'), 300);
-  // Confetti
   spawnConfetti();
-  // Mostrar acciones después de la animación
   setTimeout(() => { revealActions.hidden = false; }, 1400);
 }
 
@@ -435,12 +475,11 @@ function spawnConfetti() {
 /* ============ REVEAL actions ============ */
 document.getElementById('btn-save').addEventListener('click', async () => {
   if (state.editingId) {
-    // ya está guardado, no duplicar
-    toast('Ya está en tu colección 💖');
+    toast(t('toast.alreadySaved'));
   } else {
     const saved = await storage.save(state.config);
     state.editingId = saved.id;
-    toast('¡Guardado en tu colección! 💖');
+    toast(t('toast.saved'));
   }
 });
 
@@ -458,40 +497,33 @@ document.getElementById('btn-new-after').addEventListener('click', () => {
 
 /* ============ Export PNG / Share ============ */
 async function shareOrDownload() {
-  toast('Preparando imagen...');
+  toast(t('toast.preparing'));
   const blob = await exportImage();
-  if (!blob) {
-    toast('No se pudo exportar 😢');
-    return;
-  }
-  const file = new File([blob], `${(state.config.name || 'dumpling').replace(/\s+/g, '-')}.png`, { type: 'image/png' });
+  if (!blob) { toast(t('toast.exportFailed')); return; }
+  const dumplingName = (state.config.name || t('name.default')).replace(/\s+/g, '-');
+  const file = new File([blob], `${dumplingName}-${BRAND.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.png`, { type: 'image/png' });
 
-  // Intentar compartir nativo (Android/iOS modernos)
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({
         files: [file],
-        title: state.config.name || 'Mi Dumpling',
-        text: `¡Mira mi dumpling "${state.config.name}"! 🥟✨`,
+        title: `${state.config.name || t('name.default')} — ${BRAND}`,
+        text: t('reveal.shareText', { name: state.config.name || t('name.default'), brand: BRAND }),
       });
       return;
-    } catch (e) {
-      // usuario canceló o falló: caer a descarga
-    }
+    } catch (e) {}
   }
 
-  // Fallback: descargar
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = file.name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 500);
-  toast('Descargado 📥');
+  toast(t('toast.downloaded'));
 }
 
 async function exportImage() {
-  // Renderizar la caja ABIERTA con el dumpling visible
   const svgString = renderOpenBoxForExport();
   const size = 1080;
   const canvas = document.createElement('canvas');
@@ -499,7 +531,7 @@ async function exportImage() {
   canvas.height = size;
   const ctx = canvas.getContext('2d');
 
-  // Fondo bonito con gradiente
+  // Fondo
   const grad = ctx.createRadialGradient(size/2, size*0.3, 50, size/2, size/2, size*0.7);
   grad.addColorStop(0, '#fff5f7');
   grad.addColorStop(0.6, '#ffe9f1');
@@ -507,16 +539,35 @@ async function exportImage() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
 
-  // Pinta el SVG
+  // Brand: header arriba
+  ctx.fillStyle = '#b8478e';
+  ctx.font = 'bold 38px -apple-system, "Quicksand", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(BRAND, size / 2, 70);
+
+  // Dumpling's name debajo del brand
+  if (state.config.name) {
+    ctx.fillStyle = '#3a2540';
+    ctx.font = 'bold 56px -apple-system, "Quicksand", sans-serif';
+    ctx.fillText(state.config.name, size / 2, 145);
+  }
+
+  // SVG de la caja abierta
   const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   try {
     await new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        const pad = 60;
-        const drawSize = size - pad * 2;
-        ctx.drawImage(img, pad, pad, drawSize, drawSize);
+        const padX = 60;
+        const top = 170;
+        const bottom = 80;
+        const drawW = size - padX * 2;
+        const drawH = size - top - bottom;
+        const drawSize = Math.min(drawW, drawH);
+        const dx = (size - drawSize) / 2;
+        const dy = top + (drawH - drawSize) / 2;
+        ctx.drawImage(img, dx, dy, drawSize, drawSize);
         resolve();
       };
       img.onerror = reject;
@@ -526,38 +577,25 @@ async function exportImage() {
     URL.revokeObjectURL(url);
   }
 
-  // Marca de agua sutil
-  ctx.fillStyle = 'rgba(58, 37, 64, 0.4)';
-  ctx.font = 'bold 28px -apple-system, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('🥟 Mi Dumpling', size / 2, size - 36);
+  // Footer
+  ctx.fillStyle = 'rgba(58, 37, 64, 0.45)';
+  ctx.font = 'bold 24px -apple-system, sans-serif';
+  ctx.fillText('🥟 ' + BRAND, size / 2, size - 36);
 
   return await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
 }
 
 function renderOpenBoxForExport() {
-  // Renderiza la caja con las transformaciones de apertura aplicadas inline
-  // para que el PNG exportado muestre la caja abierta con el dumpling.
   const baseSvg = renderBoxSVG(state.config, state.config);
-  // Inserta atributos transform inline en los grupos animados
-  const opened = baseSvg
-    .replace(
-      /<g class="box-lid-top">/g,
-      '<g class="box-lid-top" transform="translate(0 -260) rotate(-8 250 200)">'
-    )
-    .replace(
-      /<g class="box-lid-left">/g,
-      '<g class="box-lid-left" transform="translate(-90 -50) rotate(-25 75 175)">'
-    )
-    .replace(
-      /<g class="box-lid-right">/g,
-      '<g class="box-lid-right" transform="translate(90 -50) rotate(25 425 175)">'
-    )
-    .replace(
-      /<g class="dumpling-inside"([^>]*)>/g,
-      '<g class="dumpling-inside"$1 style="transform: translate(0px, -40px);">'
-    );
-  return opened;
+  return baseSvg
+    .replace(/<g class="box-lid-top">/g,
+      '<g class="box-lid-top" transform="translate(0 -260) rotate(-8 250 200)">')
+    .replace(/<g class="box-lid-left">/g,
+      '<g class="box-lid-left" transform="translate(-90 -50) rotate(-25 75 175)">')
+    .replace(/<g class="box-lid-right">/g,
+      '<g class="box-lid-right" transform="translate(90 -50) rotate(25 425 175)">')
+    .replace(/<g class="dumpling-inside"([^>]*)>/g,
+      '<g class="dumpling-inside"$1 style="transform: translate(0px, -40px);">');
 }
 
 /* ============ Toast ============ */
@@ -605,11 +643,22 @@ function escapeHtml(s) {
   }[c]));
 }
 
-/* ============ Prevent iOS zoom gestures ============ */
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
 
 /* ============ Init ============ */
-showScreen('home');
-renderCollection();
-updatePreview();
+(function init() {
+  const stored = getStoredLocale();
+  if (stored) {
+    setLocale(stored);
+    applyTranslations();
+    showScreen('home');
+    updatePreview();
+  } else {
+    setLocale(detectBestLocale());
+    applyTranslations();
+    renderLanguageScreen();
+    showScreen('language');
+    updatePreview();
+  }
+})();

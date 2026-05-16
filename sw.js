@@ -1,5 +1,5 @@
 /* Service worker: cache app shell para funcionar offline. */
-const CACHE = 'mi-dumpling-v1';
+const CACHE = 'elzas-dumpling-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const ASSETS = [
   './js/box.js',
   './js/parts.js',
   './js/storage.js',
+  './js/i18n.js',
   './icons/icon.svg',
 ];
 

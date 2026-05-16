@@ -12,14 +12,43 @@
 import { renderDumplingSVG } from './dumpling.js';
 import { findBoxColor } from './parts.js';
 
+const BRAND_SHORT = "Elza’s";
+
 export function renderBoxSVG(config, dumplingConfig) {
   const c = findBoxColor(config.boxColor);
-  const name = (config.name || 'Mi Dumpling').slice(0, 14);
+  const name = (config.name || '').slice(0, 14);
   const type = config.box || 'vaporera';
 
   if (type === 'regalo') return renderRegalo(c, name, dumplingConfig);
   if (type === 'bento')  return renderBento(c, name, dumplingConfig);
   return renderVaporera(c, name, dumplingConfig);
+}
+
+/* Etiqueta del nombre (sólo si hay nombre) */
+function nameLabel(name, x, y, w, h, fontSize, color, sw = 2) {
+  if (!name) return '';
+  return `
+    <g transform="translate(${x} ${y})">
+      <rect width="${w}" height="${h}" rx="${Math.min(12, h/3)}"
+            fill="#fff" opacity="0.95" stroke="${color}" stroke-width="${sw}"/>
+      <text x="${w/2}" y="${h/2 + fontSize/3}" text-anchor="middle"
+            class="box-label-text" fill="${color}"
+            font-size="${fontSize}"
+            font-family="Quicksand, 'Comic Sans MS', sans-serif">${escapeXml(name)}</text>
+    </g>`;
+}
+
+/* Sello/marca pequeña con "Elza's" para pegar en la cajita */
+function brandStamp(x, y, color = '#c43370') {
+  return `
+    <g transform="translate(${x} ${y}) rotate(-8)">
+      <ellipse cx="0" cy="0" rx="38" ry="14"
+        fill="#fffaf0" stroke="${color}" stroke-width="2" opacity="0.95"/>
+      <text x="0" y="4" text-anchor="middle"
+        font-size="13" font-weight="900" fill="${color}"
+        font-family="Quicksand, 'Comic Sans MS', sans-serif"
+        letter-spacing="0.5">${BRAND_SHORT}</text>
+    </g>`;
 }
 
 /* ============ Vaporera de bambú ============ */
@@ -40,14 +69,7 @@ function renderVaporera(c, name, dumplingConfig) {
         <!-- Rim superior -->
         <ellipse cx="250" cy="320" rx="165" ry="20" fill="${rim}" stroke="${c.stroke}" stroke-width="3"/>
         <ellipse cx="250" cy="320" rx="150" ry="15" fill="${inside}"/>
-        <!-- Etiqueta con nombre -->
-        <g transform="translate(125 360)">
-          <rect width="250" height="44" rx="12" fill="#fff" opacity="0.95"
-                stroke="${c.stroke}" stroke-width="2"/>
-          <text x="125" y="32" text-anchor="middle"
-                class="box-label-text" fill="${c.stroke}"
-                font-size="22" font-family="Quicksand, 'Comic Sans MS', sans-serif">${escapeXml(name)}</text>
-        </g>
+        ${nameLabel(name, 125, 360, 250, 44, 22, c.stroke)}
       </g>
 
       <!-- Dumpling (invisible al cerrar, aparece al abrir) -->
@@ -64,6 +86,8 @@ function renderVaporera(c, name, dumplingConfig) {
         <!-- Domo superior -->
         <ellipse cx="250" cy="250" rx="170" ry="26" fill="${darken(c.fill, 0.05)}" stroke="${c.stroke}" stroke-width="3"/>
         ${crissCross(c.stroke, 250, 250, 158, 22)}
+        <!-- Sello "Elza's" en el domo -->
+        ${brandStamp(350, 285, c.stroke)}
         <!-- Pomo -->
         <circle cx="250" cy="250" r="13" fill="${c.stroke}"/>
         <circle cx="250" cy="250" r="6" fill="${c.fill}"/>
@@ -89,13 +113,7 @@ function renderRegalo(c, name, dumplingConfig) {
         <!-- Cinta vertical y horizontal del cuerpo -->
         <rect x="230" y="250" width="40" height="180" fill="${ribbon}" stroke="${ribbonDark}" stroke-width="2"/>
 
-        <!-- Etiqueta -->
-        <g transform="translate(120 350)">
-          <rect width="260" height="50" rx="10" fill="#fff" stroke="${c.stroke}" stroke-width="2"/>
-          <text x="130" y="33" text-anchor="middle"
-                class="box-label-text" fill="${c.stroke}"
-                font-size="24" font-family="Quicksand, 'Comic Sans MS', sans-serif">${escapeXml(name)}</text>
-        </g>
+        ${nameLabel(name, 120, 350, 260, 50, 24, c.stroke)}
       </g>
 
       <!-- Dumpling dentro -->
@@ -108,6 +126,8 @@ function renderRegalo(c, name, dumplingConfig) {
         <path d="M 70 255 L 70 195 L 430 195 L 430 255 Z"
               fill="${darken(c.fill, 0.06)}" stroke="${c.stroke}" stroke-width="3" stroke-linejoin="round"/>
         <rect x="230" y="195" width="40" height="60" fill="${ribbon}" stroke="${ribbonDark}" stroke-width="2"/>
+        <!-- Sello "Elza's" en una esquina de la tapa -->
+        ${brandStamp(130, 225, c.stroke)}
 
         <!-- Moño -->
         <g transform="translate(250 170)">
@@ -138,14 +158,7 @@ function renderBento(c, name, dumplingConfig) {
         <path d="M 95 270 L 100 395 L 400 395 L 405 270 Z" fill="${darken(c.fill, 0.3)}"/>
         <line x1="250" y1="270" x2="250" y2="395" stroke="${c.stroke}" stroke-width="2" opacity="0.5"/>
 
-        <!-- Etiqueta -->
-        <g transform="translate(120 405)">
-          <rect width="260" height="28" rx="6" fill="#fff" opacity="0.95"
-                stroke="${c.stroke}" stroke-width="1.5"/>
-          <text x="130" y="20" text-anchor="middle"
-                class="box-label-text" fill="${c.stroke}"
-                font-size="18" font-family="Quicksand, 'Comic Sans MS', sans-serif">${escapeXml(name)}</text>
-        </g>
+        ${nameLabel(name, 120, 405, 260, 28, 18, c.stroke, 1.5)}
       </g>
 
       <!-- Dumpling dentro -->
@@ -165,6 +178,8 @@ function renderBento(c, name, dumplingConfig) {
               fill="${darken(c.fill, 0.05)}" stroke="${c.stroke}" stroke-width="3"/>
         <circle cx="355" cy="230" r="13" fill="none" stroke="${c.stroke}" stroke-width="3"/>
         <circle cx="355" cy="230" r="5" fill="${c.stroke}"/>
+        <!-- Sello "Elza's" -->
+        ${brandStamp(300, 232, c.stroke)}
       </g>
     </svg>
   `;

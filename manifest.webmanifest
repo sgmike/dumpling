@@ -1,14 +1,14 @@
 {
-  "name": "Mi Dumpling — Diseña tu dumpling",
-  "short_name": "Dumpling",
-  "description": "Diseña tu propio dumpling kawaii: elige color, ojos, boca, accesorios y guárdalo en su cajita. Comparte como imagen.",
+  "name": "Elza's dumpling workshop",
+  "short_name": "Elza's dumpling",
+  "description": "Design your own kawaii dumpling, name it, pack it in a box and share. Available in Español, English, Latviešu.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#fff5f7",
   "theme_color": "#ff7eb6",
-  "lang": "es",
+  "lang": "en",
   "categories": ["entertainment", "kids", "lifestyle"],
   "icons": [
     {
