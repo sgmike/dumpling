@@ -1,0 +1,21 @@
+{
+  "name": "Mi Dumpling — Diseña tu dumpling",
+  "short_name": "Dumpling",
+  "description": "Diseña tu propio dumpling kawaii: elige color, ojos, boca, accesorios y guárdalo en su cajita. Comparte como imagen.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fff5f7",
+  "theme_color": "#ff7eb6",
+  "lang": "es",
+  "categories": ["entertainment", "kids", "lifestyle"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
